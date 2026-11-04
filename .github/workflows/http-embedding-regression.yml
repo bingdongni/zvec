@@ -1,0 +1,32 @@
+name: HTTP embedding regression
+
+on: [push]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.12']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install released native extension and test tools
+        run: python -m pip install 'zvec==0.8.0' pytest pytest-xdist 'ruff==0.14.4'
+      - name: Use the Python sources from this branch
+        run: |
+          target=$(python -c 'import pathlib, zvec; print(pathlib.Path(zvec.__file__).parent)')
+          cp -a python/zvec/. "$target/"
+          python -c 'import zvec; print("Package under test:", zvec.__file__)'
+      - name: Run project lint checks
+        run: |
+          ruff check .
+          ruff format --check .
+      - name: Test HTTP and existing embeddings
+        run: python -m pytest -o addopts= python/tests/test_http_embedding.py python/tests/test_embedding.py -q
